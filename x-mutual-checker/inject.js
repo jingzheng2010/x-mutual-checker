@@ -150,6 +150,9 @@
       verifiedType: (r.verification && r.verification.verified_type) || L.verified_type || '',
       followers,
       followedBy: fb === undefined || fb === null ? null : !!fb,
+      // 账号状态：X 给受限账号打的标记（主页会显示「此账号暂时受限」），以及对方当前关注了多少人
+      interstitial: (r.profile_metadata && r.profile_metadata.profile_interstitial_type) || '',
+      followingCount: typeof RC.following === 'number' ? RC.following : null,
     };
   }
 

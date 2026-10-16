@@ -158,3 +158,17 @@
   #xmf-root .xmf-pbar.indet .xmf-pfill, #xmf-root .xmf-dock.indet .xmf-ring, #xmf-root .xmf-panel, #xmf-root .xmf-fab-badge { animation: none; }
   #xmf-root .xmf-fab, #xmf-root .xmf-ico { transition: none; }
 }
+
+/* 取关列表：真的取关 / 账号异常 */
+#xmf-root .xmf-kinds { display: flex; gap: 6px; padding: 8px 16px 0; }
+#xmf-root .xmf-kinds button {
+  border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+  border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#xmf-root .xmf-kinds button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+#xmf-root .xmf-tag {
+  flex: none; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; line-height: 16px;
+  background: var(--hover); color: var(--muted); border: 1px solid var(--line);
+}
+#xmf-root .xmf-tag.warn { background: rgba(255,173,31,.14); color: #b26a00; border-color: rgba(255,173,31,.35); }
+#xmf-root.xmf-dark .xmf-tag.warn { color: #ffc35a; }

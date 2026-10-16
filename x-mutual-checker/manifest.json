@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X 互关检测 · 蓝V取关助手",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "找出曾经互关、后来取关了你的蓝V账号，一键整理并取关。",
   "permissions": [
     "storage"

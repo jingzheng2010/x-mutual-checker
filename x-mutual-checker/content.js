@@ -123,6 +123,7 @@
   const S = {
     st: null,
     tab: 'unf',
+    kind: 'real',
     onlyBlue: true,
     q: '',
     sel: new Set(),
@@ -171,6 +172,23 @@
           { class: 'xmf-tabs' },
           ref('tabUnf', h('button', { class: 'on', onclick: () => setTab('unf') }, '取关了我 ', ref('cUnf', h('b', null, '0')))),
           ref('tabNfb', h('button', { onclick: () => setTab('nfb') }, '未回关 ', ref('cNfb', h('b', null, '0'))))
+        ),
+        ref(
+          'kinds',
+          h(
+            'div',
+            { class: 'xmf-kinds' },
+            ref('kindReal', h('button', { class: 'on', onclick: () => setKind('real') }, '真的取关 ', ref('cReal', h('b', null, '0')))),
+            ref(
+              'kindOdd',
+              h(
+                'button',
+                { onclick: () => setKind('odd'), title: '账号被 X 限制，或对方清空了关注，不是主动取关' },
+                '账号异常 ',
+                ref('cOdd', h('b', null, '0'))
+              )
+            )
+          )
         ),
         h(
           'div',
@@ -308,7 +326,7 @@
   // 角标：取关了我的人数（只算没忽略的）
   function updateBadge() {
     if (!R.fabBadge || !S.st) return;
-    const n = Object.values(S.st.unfollowers).filter((u) => !S.st.ignored[u.id]).length;
+    const n = Object.values(S.st.unfollowers).filter((u) => !S.st.ignored[u.id] && isReal(u)).length;
     R.fabBadge.hidden = !n || S.scanning;
     R.fabBadge.textContent = n > 99 ? '99+' : String(n);
     R.fabTip.textContent = S.scanning ? '扫描中…' : n ? `${n} 个人取关了你` : '互关检测';
@@ -356,6 +374,24 @@
     render();
   }
 
+  // 取关列表里区分：真的取关 / 账号异常（被 X 限制、或对方清空了关注）
+  const RESTRICTED_TYPES = ['fake_account', 'timeout'];
+  function accountState(u) {
+    if (RESTRICTED_TYPES.includes(u.interstitial)) return 'restricted';
+    if (u.followingCount === 0) return 'cleared';
+    return 'real';
+  }
+  const isReal = (u) => accountState(u) === 'real';
+
+  function setKind(k) {
+    S.kind = k;
+    S.sel.clear();
+    R.kindReal.classList.toggle('on', k === 'real');
+    R.kindOdd.classList.toggle('on', k === 'odd');
+    resetPaging();
+    render();
+  }
+
   function baseList(tab) {
     const st = S.st;
     const src = tab === 'unf' ? Object.values(st.unfollowers) : st.nonFollowback;
@@ -364,6 +400,7 @@
 
   function currentList() {
     let list = baseList(S.tab);
+    if (S.tab === 'unf') list = list.filter((u) => (S.kind === 'odd' ? !isReal(u) : isReal(u)));
     if (S.q)
       list = list.filter(
         (u) => (u.name || '').toLowerCase().includes(S.q) || (u.screen_name || '').toLowerCase().includes(S.q)
@@ -390,7 +427,12 @@
     R.sub.textContent =
       (handle ? '@' + handle + ' · ' : '') +
       (st.lastScanAt ? `上次扫描 ${fmtDate(st.lastScanAt)} · 关注 ${st.lastCount}` : '还没扫描过');
-    R.cUnf.textContent = baseList('unf').length;
+    const unfAll = baseList('unf');
+    const realN = unfAll.filter(isReal).length;
+    R.cUnf.textContent = realN;
+    R.cReal.textContent = realN;
+    R.cOdd.textContent = unfAll.length - realN;
+    R.kinds.hidden = S.tab !== 'unf';
     R.cNfb.textContent = baseList('nfb').length;
 
     let hint = '';
@@ -398,6 +440,9 @@
       if (!st.lastScanAt) hint = '首次使用：先扫描一次，记录下当前和你互关的人。以后再扫描，就会列出“曾经互关、后来取关了你”的账号。';
       else if (!Object.keys(st.unfollowers).length)
         hint = `已记录 ${Object.keys(st.mutual).length} 个互关账号作为基线。目前没发现取关你的人，隔几天再扫一次。想马上清理可以看“未回关”。`;
+      else if (S.kind === 'odd')
+        hint =
+          '这些账号曾经和你互关，现在不再关注你，但不是主动取关：「账号受限」是被 X 限制了（主页显示「此账号暂时受限」），「关注数为 0」是对方清空了全部关注，通常也是账号出了问题。账号恢复后可能会重新关注你，一般不用急着取关。';
     } else {
       const all = st.nonFollowback.filter((u) => !st.ignored[u.id]);
       hint = `你关注了、但目前没有关注你的账号（包括从来没回关的）：共 ${all.length} 个，其中蓝V ${all.filter((u) => u.blue).length} 个。${S.onlyBlue ? '当前只显示蓝V，取消勾选“仅蓝V”可看全部。' : ''}`;
@@ -453,6 +498,15 @@
     return parts.join(' · ');
   }
 
+  function stateTag(u) {
+    if (S.tab !== 'unf') return null;
+    const st = accountState(u);
+    if (st === 'restricted')
+      return h('span', { class: 'xmf-tag warn', title: 'X 已限制该账号，主页会显示「此账号暂时受限」' }, '账号受限');
+    if (st === 'cleared') return h('span', { class: 'xmf-tag', title: '对方现在不关注任何人，可能是账号被处理或清空了关注' }, '关注数为 0');
+    return null;
+  }
+
   function row(u) {
     const status = S.rowStatus[u.id];
     const meta = h('span', null, metaText(u));
@@ -476,7 +530,8 @@
           'div',
           { class: 'xmf-name' },
           h('span', { class: 'xmf-nm' }, u.name || u.screen_name),
-          u.blue ? h('span', { class: 'xmf-badge' + (u.verifiedType === 'Business' ? ' gold' : ''), title: '已认证' }, '✓') : null
+          u.blue ? h('span', { class: 'xmf-badge' + (u.verifiedType === 'Business' ? ' gold' : ''), title: '已认证' }, '✓') : null,
+          stateTag(u)
         ),
         h('a', { class: 'xmf-handle', href: '/' + u.screen_name, target: '_blank', rel: 'noopener' }, '@' + u.screen_name),
         h(
@@ -742,13 +797,15 @@
   function exportCsv() {
     const list = currentList();
     if (!list.length) return setProg('当前列表为空');
-    const rows = [['名称', '用户名', '主页', '粉丝数', '蓝V', '发现时间']].concat(
+    const STATE_TEXT = { real: '真的取关', restricted: '账号受限', cleared: '关注数为0' };
+    const rows = [['名称', '用户名', '主页', '粉丝数', '蓝V', '状态', '发现时间']].concat(
       list.map((u) => [
         u.name,
         '@' + u.screen_name,
         location.origin + '/' + u.screen_name,
         u.followers,
         u.blue ? '是' : '否',
+        S.tab === 'unf' ? STATE_TEXT[accountState(u)] : '未回关',
         u.detectedAt ? fmtDate(u.detectedAt) : '',
       ])
     );
